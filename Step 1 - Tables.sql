@@ -3,7 +3,7 @@
 CREATE TABLE carts (
 cart_id serial PRIMARY KEY,
 cart_name varchar(50),
-LOCATION varchar(100),
+location varchar(100),
 status varchar(20) -- Active, Inactive
 );
 
