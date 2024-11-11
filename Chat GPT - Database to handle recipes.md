@@ -1208,3 +1208,52 @@ CREATE TABLE promotions (
 - **Generated Columns**: Use calculated fields for values like `discount_amount` in `sales` and `total_cost` in `prod_ingr_cost`.
 
 This structure should allow for accurate tracking of production costs per batch, inventory management, and sales tracking for the coffee cart business. Let me know if you'd like further customization.
+
+---
+# Which data to be inserted first
+---
+
+To avoid constraint errors when inserting data into this database, you should populate the tables in an order that respects their dependencies, starting with tables that have no foreign key constraints and proceeding to those with the most dependencies. Here's the suggested order:
+
+1. **`users`**: Since there are no dependencies on other tables, this can be populated first.
+
+2. **`carts`**: Independent of other tables, so you can insert values here next.
+
+3. **`products`**: Populate the products table early, as other tables will reference it.
+
+4. **`ingredients`**: This table is required by `ingr_batch`, `recipes`, and `prod_ingr_cost`, so populate it before any tables that depend on it.
+
+5. **`promotions`**: Independent of any other tables.
+
+6. **`ingr_batch`**: This table references `ingredients`, so insert ingredients first before creating ingredient batches.
+
+7. **`production_batches`**: This table references `products`, so ensure that `products` is populated first.
+
+8. **`prod_ingr_cost`**: This table references both `production_batches` and `ingredients`, so make sure those two tables are populated before inserting data here.
+
+9. **`recipes`**: This table references `products` and `ingredients`, so both need to be populated before adding recipes.
+
+10. **`production_distribution`**: This table references `production_batches`, `products`, and `carts`, so all three need to be populated first.
+
+11. **`sales`**: References `carts` and `users`, so both should be populated before inserting sales records.
+
+12. **`sales_details`**: This table references `sales` and `products`, so both need to be populated before adding detailed sale records.
+
+13. **`cart_products`**: This table references both `carts` and `products`, so they need to be populated before adding cart inventory information.
+
+### Summary of Insertion Order:
+1. `users`
+2. `carts`
+3. `products`
+4. `ingredients`
+5. `promotions`
+6. `ingr_batch`
+7. `production_batches`
+8. `prod_ingr_cost`
+9. `recipes`
+10. `production_distribution`
+11. `sales`
+12. `sales_details`
+13. `cart_products`
+
+Following this order ensures that all foreign key dependencies are respected, minimizing the risk of constraint errors during data insertion.
