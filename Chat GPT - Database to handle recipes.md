@@ -421,3 +421,790 @@ This design allows for:
 - **Inventory Management**: `remaining_qty` allows for real-time inventory tracking, facilitating better stock management.
 
 This database structure supports both operational needs (inventory and cost management) and strategic analysis (price fluctuations and supplier tracking), making it well-suited for restaurant management.
+
+---
+# Database design to handle menus (meals and beverages) of a coffee shop
+---
+
+For managing a coffee shop that sells both coffee-based beverages and meals, we need a database schema that handles menus, recipes, ingredients (inventory) in batches, and fluctuating prices. This design will incorporate tables for storing information about the ingredients, batches, suppliers, recipes, and menu items. Let’s go through each aspect step-by-step.
+
+### Database Schema Design
+
+We’ll use the following tables:
+
+1. **Suppliers**: Stores supplier information.
+2. **Ingredients**: Contains the ingredients used in recipes.
+3. **Batches**: Tracks each batch of an ingredient with its purchase price, quantity, and supplier information.
+4. **Dishes**: Stores the menu items for meals and beverages.
+5. **Recipe_Ingredients**: Links ingredients to specific recipes, specifying required quantities.
+6. **Menu_Items**: Lists all menu items and the type (e.g., meal or beverage).
+
+---
+
+### Table Structures and DDL Statements
+
+#### 1. `Suppliers` Table
+
+Stores information about suppliers.
+
+```sql
+CREATE TABLE Suppliers (
+    supplier_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    contact_info VARCHAR(255)
+);
+```
+
+#### 2. `Ingredients` Table
+
+Contains the basic information of each ingredient, including unit of measure (e.g., grams, liters).
+
+```sql
+CREATE TABLE Ingredients (
+    ingredient_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    unit_of_measure VARCHAR(50) NOT NULL
+);
+```
+
+#### 3. `Batches` Table
+
+Tracks each ingredient batch with price, quantity, purchase date, expiry, and supplier information.
+
+```sql
+CREATE TABLE Batches (
+    batch_id INT PRIMARY KEY,
+    ingredient_id INT NOT NULL REFERENCES Ingredients(ingredient_id),
+    price_per_unit DECIMAL(10, 2) NOT NULL,
+    quantity DECIMAL(10, 2) NOT NULL,
+    remaining_qty DECIMAL(10, 2) NOT NULL,
+    purchase_date DATE NOT NULL,
+    expiry_date DATE,
+    supplier_id INT NOT NULL REFERENCES Suppliers(supplier_id)
+);
+```
+
+#### 4. `Dishes` Table
+
+Holds each dish (meal or beverage) served in the coffee shop.
+
+```sql
+CREATE TABLE Dishes (
+    dish_id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT,
+    type VARCHAR(50) CHECK (type IN ('Meal', 'Beverage'))
+);
+```
+
+#### 5. `Recipe_Ingredients` Table
+
+Associates ingredients with dishes, defining how much of each ingredient is required for a recipe.
+
+```sql
+CREATE TABLE Recipe_Ingredients (
+    recipe_ingredient_id INT PRIMARY KEY,
+    dish_id INT NOT NULL REFERENCES Dishes(dish_id),
+    ingredient_id INT NOT NULL REFERENCES Ingredients(ingredient_id),
+    quantity DECIMAL(10, 2) NOT NULL
+);
+```
+
+#### 6. `Menu_Items` Table
+
+Lists all items on the menu, including price for each item served.
+
+```sql
+CREATE TABLE Menu_Items (
+    menu_item_id INT PRIMARY KEY,
+    dish_id INT NOT NULL REFERENCES Dishes(dish_id),
+    price DECIMAL(10, 2) NOT NULL
+);
+```
+
+---
+
+### Dummy Data to Populate Tables
+
+```sql
+-- Suppliers
+INSERT INTO Suppliers (supplier_id, name, contact_info) VALUES
+(1, 'ABC Coffee Beans', '123-456-7890'),
+(2, 'Fresh Dairy Supplies', '234-567-8901');
+
+-- Ingredients
+INSERT INTO Ingredients (ingredient_id, name, unit_of_measure) VALUES
+(1, 'Coffee Beans', 'grams'),
+(2, 'Milk', 'liters'),
+(3, 'Sugar', 'grams'),
+(4, 'Flour', 'grams'),
+(5, 'Butter', 'grams');
+
+-- Batches
+INSERT INTO Batches (batch_id, ingredient_id, price_per_unit, quantity, remaining_qty, purchase_date, expiry_date, supplier_id) VALUES
+(1, 1, 0.05, 5000, 5000, '2024-01-01', '2024-06-01', 1),
+(2, 2, 1.20, 100, 100, '2024-01-02', '2024-02-02', 2),
+(3, 3, 0.01, 2000, 2000, '2024-01-05', '2024-07-01', 1);
+
+-- Dishes
+INSERT INTO Dishes (dish_id, name, description, type) VALUES
+(1, 'Latte', 'A creamy coffee with milk', 'Beverage'),
+(2, 'Croissant', 'A flaky buttery pastry', 'Meal');
+
+-- Recipe_Ingredients
+INSERT INTO Recipe_Ingredients (recipe_ingredient_id, dish_id, ingredient_id, quantity) VALUES
+(1, 1, 1, 18),   -- 18g Coffee Beans for Latte
+(2, 1, 2, 0.25), -- 0.25L Milk for Latte
+(3, 2, 4, 100),  -- 100g Flour for Croissant
+(4, 2, 5, 50);   -- 50g Butter for Croissant
+
+-- Menu_Items
+INSERT INTO Menu_Items (menu_item_id, dish_id, price) VALUES
+(1, 1, 3.50),  -- Latte priced at $3.50
+(2, 2, 2.50);  -- Croissant priced at $2.50
+```
+
+---
+
+### Example Queries Using Dummy Data
+
+#### 1. Retrieve the Current Price for a Latte
+
+This query calculates the latest cost of making a Latte by summing the required quantity of each ingredient’s price from the most recent batch.
+
+```sql
+SELECT SUM(ri.quantity * b.price_per_unit) AS latte_cost
+FROM Recipe_Ingredients ri
+JOIN Batches b ON ri.ingredient_id = b.ingredient_id
+WHERE ri.dish_id = (SELECT dish_id FROM Dishes WHERE name = 'Latte')
+AND b.remaining_qty >= ri.quantity
+ORDER BY b.purchase_date DESC
+LIMIT 1;
+```
+
+#### 2. Retrieve Menu with Prices
+
+Lists all items available on the menu with their respective prices.
+
+```sql
+SELECT m.menu_item_id, d.name AS dish_name, m.price
+FROM Menu_Items m
+JOIN Dishes d ON m.dish_id = d.dish_id;
+```
+
+#### 3. Calculate Inventory Cost for Remaining Stock
+
+Finds the total cost of all remaining ingredients by multiplying each batch’s remaining quantity by its unit price.
+
+```sql
+SELECT i.name AS ingredient_name, SUM(b.remaining_qty * b.price_per_unit) AS total_cost
+FROM Batches b
+JOIN Ingredients i ON b.ingredient_id = i.ingredient_id
+GROUP BY i.name;
+```
+
+#### 4. Determine Ingredient Costs for a Croissant
+
+Calculates the cost of ingredients for a croissant using the latest batch prices.
+
+```sql
+SELECT SUM(ri.quantity * b.price_per_unit) AS croissant_cost
+FROM Recipe_Ingredients ri
+JOIN Batches b ON ri.ingredient_id = b.ingredient_id
+WHERE ri.dish_id = (SELECT dish_id FROM Dishes WHERE name = 'Croissant')
+AND b.remaining_qty >= ri.quantity
+ORDER BY b.purchase_date DESC
+LIMIT 1;
+```
+
+#### 5. Decrease Inventory After a Dish is Made
+
+After making a dish, this query updates `remaining_qty` for the batches used. For example, making a Latte:
+
+```sql
+UPDATE Batches
+SET remaining_qty = remaining_qty - 18
+WHERE batch_id = (SELECT batch_id FROM Batches WHERE ingredient_id = 1 ORDER BY purchase_date DESC LIMIT 1);
+
+UPDATE Batches
+SET remaining_qty = remaining_qty - 0.25
+WHERE batch_id = (SELECT batch_id FROM Batches WHERE ingredient_id = 2 ORDER BY purchase_date DESC LIMIT 1);
+```
+
+---
+
+### Summary
+
+This schema supports:
+
+- **Cost Calculation by Batch**: Costs for recipes reflect current ingredient batch prices.
+- **Inventory Tracking by Batch**: `remaining_qty` allows precise management.
+- **Menu and Recipe Management**: Recipes link ingredients and quantities needed, with a table for easy menu pricing.
+
+This setup covers cost, inventory, and price fluctuation management for the coffee shop’s meals and beverages.
+
+---
+# Adjustments to the overall table structure
+---
+
+Given your requirements, the existing schema is close but could use a few enhancements for tracking users, handling promotions, and managing inventory production for each cart. Here are the adjustments I’d recommend:
+
+---
+
+### Suggested Adjustments to the Schema
+
+1. **Add a `users` table**:
+   - This table would store information on recurring users, allowing you to track user-specific data such as promotional discounts and loyalty points.
+   - **Columns**:
+     - `user_id`: Unique identifier for the user
+     - `name`: Name of the user
+     - `email`: User’s email for notifications or promotions
+     - `loyalty_points`: Track points for promotions or discounts
+     - `discount_eligibility`: Boolean or percentage to apply discounts
+
+2. **Update `sales` to link with `users` and apply discounts**:
+   - Include a column in the `sales` table to store discounts applied to the total sale amount, if applicable.
+   - **Columns to add**:
+     - `user_id` (FK): Link sales to a user for tracking purposes
+     - `discount_amount`: Discount applied to the sale, if any
+
+3. **Enhance `products` to handle product costs from ingredients**:
+   - To track costs based on ingredient fluctuations, we could calculate the cost per product dynamically in reports (or use a `cost_per_unit` column if needed).
+   - Optionally, add `production_cost` to store the total calculated cost of ingredients per batch for ready reference.
+   - **Columns to consider**:
+     - `production_cost`: Calculated as a sum of the latest ingredient costs for each product unit, if pre-computed
+
+4. **Track `production_batches` for daily replenishments**:
+   - To manage inventory for each cart, add a `production_batches` table to record the quantities produced and distributed to each cart.
+   - **Columns**:
+     - `batch_id`: Unique identifier for each production batch
+     - `product_id` (FK): Product being produced
+     - `production_date`: Date of production
+     - `quantity_produced`: Total units produced
+     - `distribution`: JSON or separate `production_distribution` table for cart-specific distribution details
+
+5. **Add `promotions` table for discounts**:
+   - Define promotions that can be applied to users based on loyalty points, sales amounts, or special events.
+   - **Columns**:
+     - `promotion_id`: Unique promotion identifier
+     - `description`: Brief description of the promotion
+     - `discount_percent`: Discount percentage to be applied
+     - `eligibility_criteria`: JSON field or defined rules (e.g., min_points or min_purchase)
+
+---
+
+### Updated Table Structures (DDL)
+
+#### 1. `users` Table
+
+```sql
+CREATE TABLE users (
+    user_id SERIAL PRIMARY KEY,
+    name VARCHAR(100),
+    email VARCHAR(100) UNIQUE,
+    loyalty_points INT DEFAULT 0,
+    discount_eligibility BOOLEAN DEFAULT FALSE
+);
+```
+
+#### 2. `sales` Table (Updated)
+
+```sql
+CREATE TABLE sales (
+    sale_id SERIAL PRIMARY KEY,
+    cart_id INT REFERENCES carts(cart_id),
+    user_id INT REFERENCES users(user_id),
+    sale_amount DECIMAL(10, 2),
+    discount_amount DECIMAL(10, 2) DEFAULT 0,
+    sale_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    payment_method VARCHAR(50)
+);
+```
+
+#### 3. `production_batches` Table
+
+```sql
+CREATE TABLE production_batches (
+    batch_id SERIAL PRIMARY KEY,
+    product_id INT REFERENCES products(product_id),
+    production_date DATE,
+    quantity_produced INT,
+    distribution JSONB  -- OR use a production_distribution table for cart-specific details
+);
+```
+
+#### 4. `promotions` Table
+
+```sql
+CREATE TABLE promotions (
+    promotion_id SERIAL PRIMARY KEY,
+    description TEXT,
+    discount_percent DECIMAL(5, 2),
+    eligibility_criteria JSONB  -- Could store rules like {"min_points": 100, "min_purchase": 50}
+);
+```
+
+---
+
+### Example Dummy Data
+
+Here's some sample data you could use:
+
+#### `users` Table
+
+| user_id | name      | email               | loyalty_points | discount_eligibility |
+|---------|-----------|---------------------|----------------|-----------------------|
+| 1       | Alice     | alice@email.com     | 150            | TRUE                  |
+| 2       | Bob       | bob@email.com       | 50             | FALSE                 |
+
+#### `production_batches` Table
+
+| batch_id | product_id | production_date | quantity_produced | distribution                                       |
+|----------|------------|-----------------|-------------------|----------------------------------------------------|
+| 1        | 101        | 2024-11-11      | 50               | {"cart_1": 20, "cart_2": 30}                       |
+
+---
+
+### Example Queries
+
+1. **Get all sales for a specific user, including any discounts applied:**
+
+   ```sql
+   SELECT s.sale_id, s.sale_amount, s.discount_amount, s.sale_timestamp, s.payment_method
+   FROM sales s
+   JOIN users u ON s.user_id = u.user_id
+   WHERE u.user_id = 1;
+   ```
+
+2. **Calculate total production costs for a product based on current ingredient batch prices:**
+
+   ```sql
+   SELECT p.product_id, p.product_name, SUM(ib.price_per_unit * r.quantity) AS production_cost
+   FROM products p
+   JOIN recipes r ON p.product_id = r.product_id
+   JOIN ingr_batch ib ON r.ingredient_id = ib.ingredient_id
+   WHERE p.product_id = 101
+   GROUP BY p.product_id;
+   ```
+
+3. **List all carts and their current stock of each product based on recent production batches:**
+
+   ```sql
+   SELECT pb.batch_id, pb.product_id, pb.production_date, pb.quantity_produced, pb.distribution
+   FROM production_batches pb
+   WHERE pb.production_date >= CURRENT_DATE - INTERVAL '7 days';
+   ```
+
+4. **Identify users eligible for promotions based on loyalty points or previous purchases:**
+
+   ```sql
+   SELECT u.user_id, u.name, u.loyalty_points, p.discount_percent
+   FROM users u
+   JOIN promotions p ON u.loyalty_points >= p.eligibility_criteria->>'min_points'::int
+   WHERE p.promotion_id = 1;
+   ```
+
+---
+
+This setup should cover your requirements for tracking users, managing fluctuating ingredient costs, handling production, and managing discounts efficiently! Let me know if you need further customization.
+
+---
+# Establishing `production_distribution` table
+---
+
+Certainly! The `production_distribution` table would provide a detailed breakdown of how many units of each product are distributed to each cart for each production batch. Here’s what the structure could look like:
+
+---
+
+### `production_distribution` Table Structure
+
+| Column              | Description                                      |
+|---------------------|--------------------------------------------------|
+| `distribution_id`   | Unique identifier for each distribution entry    |
+| `batch_id`          | Foreign key linking to the `production_batches` table |
+| `product_id`        | Foreign key linking to the `products` table      |
+| `cart_id`           | Foreign key linking to the `carts` table         |
+| `quantity_distributed` | Quantity of the product distributed to the specified cart in the batch |
+
+---
+
+This table would allow you to easily query the amount of each product that was sent to each cart per production batch, making it simpler to track and manage inventory across multiple carts.
+
+---
+# Tracking production cost per batch
+---
+
+To track production costs per batch and then calculate a per-product cost, you’ll need to adjust the schema slightly to ensure you capture the total production cost in each batch. Here’s how to approach this:
+
+### Changes to Track Production Cost Per Batch
+
+1. **Add a `total_cost` Column in the `production_batches` Table**:
+   - This column will store the total cost of all ingredients used in a particular batch. This way, you can calculate the per-product cost simply by dividing `total_cost` by `quantity_produced`.
+
+2. **Calculate and Store Ingredient Costs for Each Batch**:
+   - To accurately calculate `total_cost`, you’d need to track the cost of each ingredient used in the batch at the time of production. This could be done dynamically in queries, or stored in a new table if you want historical records of ingredient costs per batch.
+
+3. **Optional: Track Ingredient Costs for Each Production Batch (Using a `production_ingredient_costs` Table)**:
+   - If you want more granularity or to see a breakdown of which ingredients contributed to each batch’s cost, you could use an additional table to log the quantity and cost of each ingredient used per batch.
+
+---
+
+### Revised Table Structures
+
+#### 1. Updated `production_batches` Table
+
+| Column              | Description                                              |
+|---------------------|----------------------------------------------------------|
+| `batch_id`          | Unique identifier for each production batch              |
+| `product_id`        | Foreign key linking to the `products` table              |
+| `production_date`   | Date of production                                       |
+| `quantity_produced` | Total quantity produced in this batch                    |
+| `total_cost`        | Total cost of ingredients used in this batch             |
+
+#### 2. Optional `production_ingredient_costs` Table (for Detailed Cost Tracking)
+
+| Column               | Description                                            |
+|----------------------|--------------------------------------------------------|
+| `cost_id`            | Unique identifier for each ingredient cost entry       |
+| `batch_id`           | Foreign key linking to the `production_batches` table  |
+| `ingredient_id`      | Foreign key linking to the `ingredients` table         |
+| `quantity_used`      | Quantity of the ingredient used in the batch           |
+| `cost_per_unit`      | Cost per unit at the time of production                |
+| `total_cost`         | Calculated as `quantity_used * cost_per_unit`          |
+
+This `production_ingredient_costs` table would enable you to sum up costs for each batch and record the specific cost of each ingredient at production time. 
+
+---
+
+### Example Queries for Production Cost Calculations
+
+1. **Calculate Per-Product Cost Based on `production_batches`**:
+
+   ```sql
+   SELECT
+       pb.batch_id,
+       pb.product_id,
+       pb.quantity_produced,
+       pb.total_cost,
+       pb.total_cost / NULLIF(pb.quantity_produced, 0) AS cost_per_unit
+   FROM production_batches pb
+   WHERE pb.product_id = 101;  -- Example product ID
+   ```
+
+2. **Calculate Total Batch Cost Using `production_ingredient_costs` (If Using This Table)**:
+
+   ```sql
+   SELECT
+       pic.batch_id,
+       SUM(pic.total_cost) AS total_batch_cost
+   FROM production_ingredient_costs pic
+   WHERE pic.batch_id = 1  -- Example batch ID
+   GROUP BY pic.batch_id;
+   ```
+
+3. **Update `total_cost` in `production_batches` from `production_ingredient_costs`**:
+
+   ```sql
+   UPDATE production_batches pb
+   SET total_cost = (
+       SELECT SUM(total_cost)
+       FROM production_ingredient_costs pic
+       WHERE pic.batch_id = pb.batch_id
+   );
+   ```
+
+This setup will let you easily track production costs on a per-batch basis, then calculate a per-product cost by dividing the `total_cost` by `quantity_produced`.
+
+---
+# Final table structure
+---
+
+Your table structure looks well-organized and addresses all key requirements for tracking users, carts, sales, inventory, production, and costs. Here are a few minor suggestions and clarifications:
+
+### Suggested Adjustments
+
+1. **`production_batches` Table**:
+   - Add `total_cost` column: This will store the total production cost of each batch, calculated by summing `total_cost` values in the `prod_ingr_cost` table. It allows easy retrieval of total cost per batch.
+   - Consider renaming `distribution_detail` to `total_distributed` or `quantity_distributed` if it’s meant to track the amount produced for distribution. 
+
+2. **`recipes` Table**:
+   - If the `cost_per_use` is dynamic (based on batch prices), consider calculating this on demand in queries rather than storing it. If you still want to store it, ensure it's updated each time ingredient costs fluctuate.
+   
+3. **`users` Table**:
+   - Consider adding fields for `phone_number` and `address` if needed for personalized marketing or delivery.
+
+4. **`sales` Table**:
+   - Add a `total_sale_cost` column to reflect the total cost (based on ingredients) of the products sold. This allows you to analyze profitability directly by comparing `sale_amount` and `total_sale_cost`.
+
+### Final Revised Structure
+
+```markdown
+| users |     |     |
+| --- | --- | --- |
+| user_id |
+| name |
+| email |
+| loyalty_points |
+| discount_eligibility |
+| phone_number |
+| address |
+
+<br>
+
+| carts |     |     |
+| ---  | --- | --- |
+| cart_id |
+| location |
+| employee_id |
+
+<br>
+
+| products |     |     |
+| --- | --- | --- |
+| product_id |
+| product_name |
+| price | 
+| product_cost |
+| description |
+
+<br>
+
+| cart_products |     |     |
+| --- | --- | --- |
+| cart_id |
+| product_id |
+| quantity |
+
+<br>
+
+| ingredients |     |     |
+| --- | --- | --- |
+| ingredient_id |
+| ingredient_name |
+| metrics |
+
+<br>
+
+| ingr_batch |    |    |
+| --- | --- | --- |
+| ingr_batch_id |
+| ingredient_id |
+| price_per_unit |
+| quantity |
+| remaining_qty |
+| purchase_date |
+| expiry_date |
+| supplier_id |
+
+<br>
+
+| production_batches |     |     |
+| --- | --- | --- |
+| prod_batch_id |
+| product_id |
+| prod_date |
+| qty_produced |
+| total_cost |
+| quantity_distributed |
+
+<br>
+
+| prod_ingr_cost |     |     |
+| --- | --- | --- |
+| prod_ingr_cost_id | 
+| prod_batch_id |
+| ingredient_id |
+| quantity_used |
+| cost_per_unit |
+| total_cost |
+
+<br>
+
+| production_distribution |     |     |
+| --- | --- | --- |
+| prod_batch_id |
+| product_id |
+| cart_id |
+| quantity |
+
+<br>
+
+| recipes |     |     |
+| --- | --- | --- |
+| recipe_id |
+| product_id |
+| ingredient_id |
+| quantity |
+
+<br>
+
+| sales |     |     |
+| --- | --- | --- |
+| sale_id |
+| cart_id |
+| user_id |
+| sale_amount |
+| discount_percentage |
+| discount_amount |
+| total_sale_cost |
+| sale_timestamp |
+| payment_method |
+
+<br>
+
+| sales_details |     |     |
+| --- | --- | --- |
+| sales_details_id |
+| sale_id |
+| product_id |
+| quantity |
+| price_amount |
+
+<br>
+
+| promotions |     |     |
+| --- | --- | --- |
+| promo_id |
+| description |
+| discount_percent |
+| eligibility_criteria | JSON field |
+```
+
+This refined structure should provide the flexibility and detail you need to track production costs, sales, distribution, and promotional activities across multiple carts. It will also facilitate reporting and analysis of profit margins, inventory costs, and customer loyalty programs.
+
+---
+# DDL of the final table structure
+---
+
+Certainly! Below is the DDL for each table in PostgreSQL, incorporating constraints such as primary keys, foreign keys, and some additional constraints to maintain data integrity. 
+
+```sql
+-- Users table
+CREATE TABLE users (
+    user_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE,
+    loyalty_points INT DEFAULT 0,
+    discount_eligibility BOOLEAN DEFAULT FALSE,
+    phone_number VARCHAR(20),
+    address TEXT
+);
+
+-- Carts table
+CREATE TABLE carts (
+    cart_id SERIAL PRIMARY KEY,
+    location VARCHAR(100) NOT NULL,
+    employee_id INT
+);
+
+-- Products table
+CREATE TABLE products (
+    product_id SERIAL PRIMARY KEY,
+    product_name VARCHAR(100) NOT NULL,
+    price NUMERIC(10, 2) NOT NULL,
+    product_cost NUMERIC(10, 2) NOT NULL,
+    description TEXT
+);
+
+-- Cart_Products table for tracking inventory in carts
+CREATE TABLE cart_products (
+    cart_id INT REFERENCES carts(cart_id) ON DELETE CASCADE,
+    product_id INT REFERENCES products(product_id) ON DELETE CASCADE,
+    quantity INT DEFAULT 0 CHECK (quantity >= 0),
+    PRIMARY KEY (cart_id, product_id)
+);
+
+-- Ingredients table
+CREATE TABLE ingredients (
+    ingredient_id SERIAL PRIMARY KEY,
+    ingredient_name VARCHAR(100) NOT NULL,
+    metrics VARCHAR(50) NOT NULL
+);
+
+-- Ingredient Batches table for ingredient inventory management
+CREATE TABLE ingr_batch (
+    ingr_batch_id SERIAL PRIMARY KEY,
+    ingredient_id INT REFERENCES ingredients(ingredient_id) ON DELETE CASCADE,
+    price_per_unit NUMERIC(10, 2) NOT NULL CHECK (price_per_unit > 0),
+    quantity NUMERIC(10, 2) NOT NULL CHECK (quantity > 0),
+    remaining_qty NUMERIC(10, 2) NOT NULL CHECK (remaining_qty >= 0),
+    purchase_date DATE NOT NULL,
+    expiry_date DATE,
+    supplier_id INT NOT NULL
+);
+
+-- Production Batches table for tracking product batches produced
+CREATE TABLE production_batches (
+    prod_batch_id SERIAL PRIMARY KEY,
+    product_id INT REFERENCES products(product_id) ON DELETE CASCADE,
+    prod_date DATE NOT NULL,
+    qty_produced NUMERIC(10, 2) NOT NULL CHECK (qty_produced > 0),
+    total_cost NUMERIC(10, 2) GENERATED ALWAYS AS (SELECT COALESCE(SUM(total_cost), 0) FROM prod_ingr_cost WHERE prod_batch_id = production_batches.prod_batch_id) STORED,
+    quantity_distributed NUMERIC(10, 2) DEFAULT 0 CHECK (quantity_distributed >= 0)
+);
+
+-- Production Ingredient Cost table for tracking ingredient costs per production batch
+CREATE TABLE prod_ingr_cost (
+    prod_ingr_cost_id SERIAL PRIMARY KEY,
+    prod_batch_id INT REFERENCES production_batches(prod_batch_id) ON DELETE CASCADE,
+    ingredient_id INT REFERENCES ingredients(ingredient_id) ON DELETE CASCADE,
+    quantity_used NUMERIC(10, 2) NOT NULL CHECK (quantity_used > 0),
+    cost_per_unit NUMERIC(10, 2) NOT NULL CHECK (cost_per_unit > 0),
+    total_cost NUMERIC(10, 2) GENERATED ALWAYS AS (quantity_used * cost_per_unit) STORED
+);
+
+-- Production Distribution table for tracking distribution of produced products to carts
+CREATE TABLE production_distribution (
+    prod_batch_id INT REFERENCES production_batches(prod_batch_id) ON DELETE CASCADE,
+    product_id INT REFERENCES products(product_id) ON DELETE CASCADE,
+    cart_id INT REFERENCES carts(cart_id) ON DELETE CASCADE,
+    quantity NUMERIC(10, 2) NOT NULL CHECK (quantity > 0),
+    PRIMARY KEY (prod_batch_id, cart_id, product_id)
+);
+
+-- Recipes table for product recipes
+CREATE TABLE recipes (
+    recipe_id SERIAL PRIMARY KEY,
+    product_id INT REFERENCES products(product_id) ON DELETE CASCADE,
+    ingredient_id INT REFERENCES ingredients(ingredient_id) ON DELETE CASCADE,
+    quantity NUMERIC(10, 2) NOT NULL CHECK (quantity > 0)
+);
+
+-- Sales table for recording sales transactions
+CREATE TABLE sales (
+    sale_id SERIAL PRIMARY KEY,
+    cart_id INT REFERENCES carts(cart_id) ON DELETE SET NULL,
+    user_id INT REFERENCES users(user_id) ON DELETE SET NULL,
+    sale_amount NUMERIC(10, 2) NOT NULL CHECK (sale_amount >= 0),
+    discount_percentage NUMERIC(5, 2) DEFAULT 0 CHECK (discount_percentage >= 0 AND discount_percentage <= 100),
+    discount_amount NUMERIC(10, 2) GENERATED ALWAYS AS (sale_amount * discount_percentage / 100) STORED,
+    total_sale_cost NUMERIC(10, 2),
+    sale_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    payment_method VARCHAR(50) NOT NULL
+);
+
+-- Sales Details table for detailed sale line items
+CREATE TABLE sales_details (
+    sales_details_id SERIAL PRIMARY KEY,
+    sale_id INT REFERENCES sales(sale_id) ON DELETE CASCADE,
+    product_id INT REFERENCES products(product_id) ON DELETE SET NULL,
+    quantity INT NOT NULL CHECK (quantity > 0),
+    price_amount NUMERIC(10, 2) NOT NULL CHECK (price_amount >= 0)
+);
+
+-- Promotions table
+CREATE TABLE promotions (
+    promo_id SERIAL PRIMARY KEY,
+    description TEXT,
+    discount_percent NUMERIC(5, 2) NOT NULL CHECK (discount_percent >= 0 AND discount_percent <= 100),
+    eligibility_criteria JSON
+);
+```
+
+### Key Details
+- **Foreign Key Constraints**: Ensure relationships between tables are maintained. 
+- **Default Values**: For timestamp and calculated discount fields, ensuring proper default calculations where appropriate.
+- **Constraints on Numeric Fields**: For `quantity`, `price_per_unit`, `total_cost`, etc., limits are set to maintain data integrity.
+- **Generated Columns**: Use calculated fields for values like `discount_amount` in `sales` and `total_cost` in `prod_ingr_cost`.
+
+This structure should allow for accurate tracking of production costs per batch, inventory management, and sales tracking for the coffee cart business. Let me know if you'd like further customization.
