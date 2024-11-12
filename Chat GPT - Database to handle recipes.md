@@ -1257,3 +1257,159 @@ To avoid constraint errors when inserting data into this database, you should po
 13. `cart_products`
 
 Following this order ensures that all foreign key dependencies are respected, minimizing the risk of constraint errors during data insertion.
+
+---
+# Revision to the DDL
+---
+
+Your DDL has some errors and adjustments needed to work correctly in PostgreSQL. Here are the issues I identified and corrected:
+
+1. **Syntax Issues**:
+   - Missing commas in several places.
+   - The constraint on `prod_ingr_cost.cost_per_unit` is incorrect.
+
+2. **Incorrect Foreign Key References**:
+   - `FOREIGN KEY (cost_per_unit) REFERENCES ingr_batch(price_per_unit) ON DELETE RESTRICT` in `prod_ingr_cost` is incorrect. Foreign keys should reference primary or unique key columns, so referencing a non-unique column is not allowed.
+
+3. **ON DELETE Clause in `cart_products` Table**:
+   - `ON DELETE RESTRICT` should be in the `FOREIGN KEY` clauses, not directly after the column definitions.
+
+4. **References to `price` in `sales_details`**:
+   - Referencing `products(price)` as a foreign key in `sales_details` doesn’t make sense because `price` is not unique.
+
+Here's the corrected DDL:
+
+```sql
+CREATE TABLE users (
+    user_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    loyalty_points INTEGER DEFAULT 0,
+    discount_eligibility BOOLEAN DEFAULT FALSE,
+    phone_number VARCHAR(20)
+);
+
+CREATE TABLE carts (
+    cart_id SERIAL PRIMARY KEY,
+    location VARCHAR(100) NOT NULL,
+    employee_id INTEGER,
+    FOREIGN KEY (employee_id) REFERENCES employees(employee_id)
+);
+
+CREATE TABLE products (
+    product_id SERIAL PRIMARY KEY,
+    product_name VARCHAR(100) NOT NULL,
+    price NUMERIC(10, 2) NOT NULL,
+    product_cost NUMERIC(10, 2) NOT NULL,
+    description TEXT
+);
+
+CREATE TABLE cart_products (
+    cart_id INTEGER,
+    product_id INTEGER,
+    quantity INTEGER DEFAULT 0 CHECK (quantity >= 0),
+    PRIMARY KEY (cart_id, product_id),
+    FOREIGN KEY (cart_id) REFERENCES carts(cart_id) ON DELETE RESTRICT,
+    FOREIGN KEY (product_id) REFERENCES products(product_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE ingredients (
+    ingredient_id SERIAL PRIMARY KEY,
+    ingredient_name VARCHAR(100) NOT NULL,
+    metrics VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE ingr_batch (
+    ingr_batch_id SERIAL PRIMARY KEY,
+    ingredient_id INTEGER,
+    price_per_unit NUMERIC(10,2) NOT NULL CHECK (price_per_unit > 0),
+    quantity NUMERIC(10,2) NOT NULL CHECK (quantity > 0),
+    remaining_qty NUMERIC(10,2) NOT NULL CHECK (remaining_qty >= 0),
+    purchase_date DATE NOT NULL,
+    expiry_date DATE,
+    supplier_id INTEGER,
+    FOREIGN KEY (ingredient_id) REFERENCES ingredients(ingredient_id) ON DELETE RESTRICT,
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(supplier_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE production_batches (
+    prod_batch_id SERIAL PRIMARY KEY,
+    product_id INTEGER,
+    prod_date DATE NOT NULL,
+    qty_produced NUMERIC(10,2) NOT NULL CHECK (qty_produced > 0),
+    quantity_distributed NUMERIC(10,2) DEFAULT 0 CHECK (quantity_distributed >= 0),
+    FOREIGN KEY (product_id) REFERENCES products(product_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE prod_ingr_cost (
+    prod_ingr_cost_id SERIAL PRIMARY KEY,
+    prod_batch_id INTEGER,
+    ingredient_id INTEGER,
+    ingr_batch_id INTEGER,
+    quantity_used NUMERIC(10,2) NOT NULL CHECK (quantity_used > 0),
+    cost_per_unit NUMERIC(10,2) NOT NULL CHECK (cost_per_unit > 0),
+    ingr_cost NUMERIC(10,2) GENERATED ALWAYS AS (quantity_used * cost_per_unit) STORED,
+    FOREIGN KEY (prod_batch_id) REFERENCES production_batches(prod_batch_id) ON DELETE RESTRICT,
+    FOREIGN KEY (ingredient_id) REFERENCES ingredients(ingredient_id) ON DELETE RESTRICT,
+    FOREIGN KEY (ingr_batch_id) REFERENCES ingr_batch(ingr_batch_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE production_distribution (
+    prod_batch_id INTEGER,
+    product_id INTEGER,
+    cart_id INTEGER,
+    quantity NUMERIC(10,2) NOT NULL CHECK (quantity > 0),
+    PRIMARY KEY (prod_batch_id, product_id, cart_id),
+    FOREIGN KEY (prod_batch_id) REFERENCES production_batches(prod_batch_id) ON DELETE RESTRICT,
+    FOREIGN KEY (product_id) REFERENCES products(product_id) ON DELETE RESTRICT,
+    FOREIGN KEY (cart_id) REFERENCES carts(cart_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE recipes (
+    recipe_id SERIAL PRIMARY KEY,
+    product_id INTEGER,
+    ingredient_id INTEGER,
+    quantity NUMERIC(10,2) NOT NULL CHECK (quantity > 0),
+    FOREIGN KEY (product_id) REFERENCES products(product_id) ON DELETE RESTRICT,
+    FOREIGN KEY (ingredient_id) REFERENCES ingredients(ingredient_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE sales (
+    sale_id SERIAL PRIMARY KEY,
+    cart_id INTEGER,
+    user_id INTEGER,
+    sale_amount NUMERIC(10,2) NOT NULL CHECK (sale_amount >= 0),
+    discount_percentage NUMERIC(5,2) DEFAULT 0 CHECK (discount_percentage >= 0 AND discount_percentage <= 100),
+    discount_amount NUMERIC(10,2) GENERATED ALWAYS AS (sale_amount * discount_percentage / 100) STORED,
+    total_sale_cost NUMERIC(10,2),
+    sale_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    payment_method VARCHAR(50) NOT NULL,
+    FOREIGN KEY (cart_id) REFERENCES carts(cart_id) ON DELETE RESTRICT,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE sales_details (
+    sales_details_id SERIAL PRIMARY KEY,
+    sale_id INTEGER,
+    product_id INTEGER,
+    price NUMERIC(10,2),
+    quantity INTEGER NOT NULL,
+    price_amount NUMERIC(10,2) GENERATED ALWAYS AS (price * quantity) STORED,
+    FOREIGN KEY (sale_id) REFERENCES sales(sale_id) ON DELETE RESTRICT,
+    FOREIGN KEY (product_id) REFERENCES products(product_id) ON DELETE RESTRICT
+);
+
+CREATE TABLE promotions (
+    promo_id SERIAL PRIMARY KEY,
+    description TEXT NOT NULL,
+    discount_percent NUMERIC(5,2) NOT NULL CHECK (discount_percent >= 0 AND discount_percent <= 100),
+    eligibility_criteria JSONB
+);
+```
+
+### Key Changes
+1. **Fixed Missing Commas** and syntax issues.
+2. **Removed Foreign Key Reference to Non-Unique Column**: Removed `FOREIGN KEY (cost_per_unit) REFERENCES ingr_batch(price_per_unit) ON DELETE RESTRICT` in `prod_ingr_cost` table since it cannot reference a non-unique column.
+3. **Adjusted Constraints**: Moved constraints like `ON DELETE RESTRICT` within the `FOREIGN KEY` clause in tables like `cart_products`.
+
+These changes should allow the DDL to run without syntax errors and enforce the correct constraints.
