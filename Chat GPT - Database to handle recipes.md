@@ -1413,3 +1413,51 @@ CREATE TABLE promotions (
 3. **Adjusted Constraints**: Moved constraints like `ON DELETE RESTRICT` within the `FOREIGN KEY` clause in tables like `cart_products`.
 
 These changes should allow the DDL to run without syntax errors and enforce the correct constraints.
+
+---
+# Referencing a non-key column in other table
+---
+
+In relational databases, you generally cannot create a foreign key reference to a column that isn’t a primary key or doesn’t have a unique constraint. This means that while you can reference `product_id` in `sales_details` as a foreign key from `products` because `product_id` is a primary key, you can’t directly reference the `price` column from `products` as a foreign key since it isn’t unique or a primary key.
+
+However, there are a few ways to achieve similar functionality:
+
+1. **Copy the `price` value into `sales_details` using a trigger**:
+   - You could use a trigger to automatically set the `price` in `sales_details` when a new row is inserted, or whenever `product_id` in `sales_details` is updated. The trigger would pull the price from `products` based on the `product_id`.
+   
+   Here’s a simple example of such a trigger:
+
+   ```sql
+   CREATE OR REPLACE FUNCTION set_price_from_product()
+   RETURNS TRIGGER AS $$
+   BEGIN
+       NEW.price := (SELECT price FROM products WHERE product_id = NEW.product_id);
+       RETURN NEW;
+   END;
+   $$ LANGUAGE plpgsql;
+
+   CREATE TRIGGER set_price_trigger
+   BEFORE INSERT OR UPDATE ON sales_details
+   FOR EACH ROW
+   EXECUTE FUNCTION set_price_from_product();
+   ```
+
+   This trigger sets `price` in `sales_details` based on the `product_id` whenever a new row is inserted or updated.
+
+2. **Use a view to join data from both tables**:
+   - Instead of duplicating the `price` in `sales_details`, you could create a view that joins `sales_details` and `products` to include `price` from `products` in a combined result. For example:
+
+   ```sql
+   CREATE VIEW sales_details_with_price AS
+   SELECT sd.sales_details_id, sd.sale_id, sd.product_id, p.price, sd.quantity, sd.price_amount
+   FROM sales_details sd
+   JOIN products p ON sd.product_id = p.product_id;
+   ```
+
+3. **Add `price` in `sales_details` without foreign key constraint**:
+   - If you don’t require referential integrity enforcement on `price`, you can include it in `sales_details` as a regular column and manually ensure that it matches the value in `products` when necessary (e.g., through application logic).
+
+Each approach has trade-offs, so the best choice depends on your use case:
+- **Triggers** ensure data consistency but may have a slight performance impact.
+- **Views** are efficient for reading data but do not store it in `sales_details`.
+- **Direct addition** without a constraint gives flexibility but requires manual consistency management.
