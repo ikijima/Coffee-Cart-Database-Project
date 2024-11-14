@@ -423,7 +423,9 @@ This design allows for:
 This database structure supports both operational needs (inventory and cost management) and strategic analysis (price fluctuations and supplier tracking), making it well-suited for restaurant management.
 
 ---
+
 # Database design to handle menus (meals and beverages) of a coffee shop
+
 ---
 
 For managing a coffee shop that sells both coffee-based beverages and meals, we need a database schema that handles menus, recipes, ingredients (inventory) in batches, and fluctuating prices. This design will incorporate tables for storing information about the ingredients, batches, suppliers, recipes, and menu items. Let’s go through each aspect step-by-step.
@@ -644,7 +646,9 @@ This schema supports:
 This setup covers cost, inventory, and price fluctuation management for the coffee shop’s meals and beverages.
 
 ---
+
 # Adjustments to the overall table structure
+
 ---
 
 Given your requirements, the existing schema is close but could use a few enhancements for tracking users, handling promotions, and managing inventory production for each cart. Here are the adjustments I’d recommend:
@@ -654,6 +658,7 @@ Given your requirements, the existing schema is close but could use a few enhanc
 ### Suggested Adjustments to the Schema
 
 1. **Add a `users` table**:
+   
    - This table would store information on recurring users, allowing you to track user-specific data such as promotional discounts and loyalty points.
    - **Columns**:
      - `user_id`: Unique identifier for the user
@@ -663,18 +668,21 @@ Given your requirements, the existing schema is close but could use a few enhanc
      - `discount_eligibility`: Boolean or percentage to apply discounts
 
 2. **Update `sales` to link with `users` and apply discounts**:
+   
    - Include a column in the `sales` table to store discounts applied to the total sale amount, if applicable.
    - **Columns to add**:
      - `user_id` (FK): Link sales to a user for tracking purposes
      - `discount_amount`: Discount applied to the sale, if any
 
 3. **Enhance `products` to handle product costs from ingredients**:
+   
    - To track costs based on ingredient fluctuations, we could calculate the cost per product dynamically in reports (or use a `cost_per_unit` column if needed).
    - Optionally, add `production_cost` to store the total calculated cost of ingredients per batch for ready reference.
    - **Columns to consider**:
      - `production_cost`: Calculated as a sum of the latest ingredient costs for each product unit, if pre-computed
 
 4. **Track `production_batches` for daily replenishments**:
+   
    - To manage inventory for each cart, add a `production_batches` table to record the quantities produced and distributed to each cart.
    - **Columns**:
      - `batch_id`: Unique identifier for each production batch
@@ -684,6 +692,7 @@ Given your requirements, the existing schema is close but could use a few enhanc
      - `distribution`: JSON or separate `production_distribution` table for cart-specific distribution details
 
 5. **Add `promotions` table for discounts**:
+   
    - Define promotions that can be applied to users based on loyalty points, sales amounts, or special events.
    - **Columns**:
      - `promotion_id`: Unique promotion identifier
@@ -752,23 +761,23 @@ Here's some sample data you could use:
 
 #### `users` Table
 
-| user_id | name      | email               | loyalty_points | discount_eligibility |
-|---------|-----------|---------------------|----------------|-----------------------|
-| 1       | Alice     | alice@email.com     | 150            | TRUE                  |
-| 2       | Bob       | bob@email.com       | 50             | FALSE                 |
+| user_id | name  | email           | loyalty_points | discount_eligibility |
+| ------- | ----- | --------------- | -------------- | -------------------- |
+| 1       | Alice | alice@email.com | 150            | TRUE                 |
+| 2       | Bob   | bob@email.com   | 50             | FALSE                |
 
 #### `production_batches` Table
 
-| batch_id | product_id | production_date | quantity_produced | distribution                                       |
-|----------|------------|-----------------|-------------------|----------------------------------------------------|
-| 1        | 101        | 2024-11-11      | 50               | {"cart_1": 20, "cart_2": 30}                       |
+| batch_id | product_id | production_date | quantity_produced | distribution                 |
+| -------- | ---------- | --------------- | ----------------- | ---------------------------- |
+| 1        | 101        | 2024-11-11      | 50                | {"cart_1": 20, "cart_2": 30} |
 
 ---
 
 ### Example Queries
 
 1. **Get all sales for a specific user, including any discounts applied:**
-
+   
    ```sql
    SELECT s.sale_id, s.sale_amount, s.discount_amount, s.sale_timestamp, s.payment_method
    FROM sales s
@@ -777,7 +786,7 @@ Here's some sample data you could use:
    ```
 
 2. **Calculate total production costs for a product based on current ingredient batch prices:**
-
+   
    ```sql
    SELECT p.product_id, p.product_name, SUM(ib.price_per_unit * r.quantity) AS production_cost
    FROM products p
@@ -788,7 +797,7 @@ Here's some sample data you could use:
    ```
 
 3. **List all carts and their current stock of each product based on recent production batches:**
-
+   
    ```sql
    SELECT pb.batch_id, pb.product_id, pb.production_date, pb.quantity_produced, pb.distribution
    FROM production_batches pb
@@ -796,7 +805,7 @@ Here's some sample data you could use:
    ```
 
 4. **Identify users eligible for promotions based on loyalty points or previous purchases:**
-
+   
    ```sql
    SELECT u.user_id, u.name, u.loyalty_points, p.discount_percent
    FROM users u
@@ -809,7 +818,9 @@ Here's some sample data you could use:
 This setup should cover your requirements for tracking users, managing fluctuating ingredient costs, handling production, and managing discounts efficiently! Let me know if you need further customization.
 
 ---
+
 # Establishing `production_distribution` table
+
 ---
 
 Certainly! The `production_distribution` table would provide a detailed breakdown of how many units of each product are distributed to each cart for each production batch. Here’s what the structure could look like:
@@ -818,12 +829,12 @@ Certainly! The `production_distribution` table would provide a detailed breakdow
 
 ### `production_distribution` Table Structure
 
-| Column              | Description                                      |
-|---------------------|--------------------------------------------------|
-| `distribution_id`   | Unique identifier for each distribution entry    |
-| `batch_id`          | Foreign key linking to the `production_batches` table |
-| `product_id`        | Foreign key linking to the `products` table      |
-| `cart_id`           | Foreign key linking to the `carts` table         |
+| Column                 | Description                                                            |
+| ---------------------- | ---------------------------------------------------------------------- |
+| `distribution_id`      | Unique identifier for each distribution entry                          |
+| `batch_id`             | Foreign key linking to the `production_batches` table                  |
+| `product_id`           | Foreign key linking to the `products` table                            |
+| `cart_id`              | Foreign key linking to the `carts` table                               |
 | `quantity_distributed` | Quantity of the product distributed to the specified cart in the batch |
 
 ---
@@ -831,7 +842,9 @@ Certainly! The `production_distribution` table would provide a detailed breakdow
 This table would allow you to easily query the amount of each product that was sent to each cart per production batch, making it simpler to track and manage inventory across multiple carts.
 
 ---
+
 # Tracking production cost per batch
+
 ---
 
 To track production costs per batch and then calculate a per-product cost, you’ll need to adjust the schema slightly to ensure you capture the total production cost in each batch. Here’s how to approach this:
@@ -839,12 +852,15 @@ To track production costs per batch and then calculate a per-product cost, you�
 ### Changes to Track Production Cost Per Batch
 
 1. **Add a `total_cost` Column in the `production_batches` Table**:
+   
    - This column will store the total cost of all ingredients used in a particular batch. This way, you can calculate the per-product cost simply by dividing `total_cost` by `quantity_produced`.
 
 2. **Calculate and Store Ingredient Costs for Each Batch**:
+   
    - To accurately calculate `total_cost`, you’d need to track the cost of each ingredient used in the batch at the time of production. This could be done dynamically in queries, or stored in a new table if you want historical records of ingredient costs per batch.
 
 3. **Optional: Track Ingredient Costs for Each Production Batch (Using a `production_ingredient_costs` Table)**:
+   
    - If you want more granularity or to see a breakdown of which ingredients contributed to each batch’s cost, you could use an additional table to log the quantity and cost of each ingredient used per batch.
 
 ---
@@ -853,24 +869,24 @@ To track production costs per batch and then calculate a per-product cost, you�
 
 #### 1. Updated `production_batches` Table
 
-| Column              | Description                                              |
-|---------------------|----------------------------------------------------------|
-| `batch_id`          | Unique identifier for each production batch              |
-| `product_id`        | Foreign key linking to the `products` table              |
-| `production_date`   | Date of production                                       |
-| `quantity_produced` | Total quantity produced in this batch                    |
-| `total_cost`        | Total cost of ingredients used in this batch             |
+| Column              | Description                                  |
+| ------------------- | -------------------------------------------- |
+| `batch_id`          | Unique identifier for each production batch  |
+| `product_id`        | Foreign key linking to the `products` table  |
+| `production_date`   | Date of production                           |
+| `quantity_produced` | Total quantity produced in this batch        |
+| `total_cost`        | Total cost of ingredients used in this batch |
 
 #### 2. Optional `production_ingredient_costs` Table (for Detailed Cost Tracking)
 
-| Column               | Description                                            |
-|----------------------|--------------------------------------------------------|
-| `cost_id`            | Unique identifier for each ingredient cost entry       |
-| `batch_id`           | Foreign key linking to the `production_batches` table  |
-| `ingredient_id`      | Foreign key linking to the `ingredients` table         |
-| `quantity_used`      | Quantity of the ingredient used in the batch           |
-| `cost_per_unit`      | Cost per unit at the time of production                |
-| `total_cost`         | Calculated as `quantity_used * cost_per_unit`          |
+| Column          | Description                                           |
+| --------------- | ----------------------------------------------------- |
+| `cost_id`       | Unique identifier for each ingredient cost entry      |
+| `batch_id`      | Foreign key linking to the `production_batches` table |
+| `ingredient_id` | Foreign key linking to the `ingredients` table        |
+| `quantity_used` | Quantity of the ingredient used in the batch          |
+| `cost_per_unit` | Cost per unit at the time of production               |
+| `total_cost`    | Calculated as `quantity_used * cost_per_unit`         |
 
 This `production_ingredient_costs` table would enable you to sum up costs for each batch and record the specific cost of each ingredient at production time. 
 
@@ -879,7 +895,7 @@ This `production_ingredient_costs` table would enable you to sum up costs for ea
 ### Example Queries for Production Cost Calculations
 
 1. **Calculate Per-Product Cost Based on `production_batches`**:
-
+   
    ```sql
    SELECT
        pb.batch_id,
@@ -892,7 +908,7 @@ This `production_ingredient_costs` table would enable you to sum up costs for ea
    ```
 
 2. **Calculate Total Batch Cost Using `production_ingredient_costs` (If Using This Table)**:
-
+   
    ```sql
    SELECT
        pic.batch_id,
@@ -903,7 +919,7 @@ This `production_ingredient_costs` table would enable you to sum up costs for ea
    ```
 
 3. **Update `total_cost` in `production_batches` from `production_ingredient_costs`**:
-
+   
    ```sql
    UPDATE production_batches pb
    SET total_cost = (
@@ -916,7 +932,9 @@ This `production_ingredient_costs` table would enable you to sum up costs for ea
 This setup will let you easily track production costs on a per-batch basis, then calculate a per-product cost by dividing the `total_cost` by `quantity_produced`.
 
 ---
+
 # Final table structure
+
 ---
 
 Your table structure looks well-organized and addresses all key requirements for tracking users, carts, sales, inventory, production, and costs. Here are a few minor suggestions and clarifications:
@@ -924,16 +942,20 @@ Your table structure looks well-organized and addresses all key requirements for
 ### Suggested Adjustments
 
 1. **`production_batches` Table**:
+   
    - Add `total_cost` column: This will store the total production cost of each batch, calculated by summing `total_cost` values in the `prod_ingr_cost` table. It allows easy retrieval of total cost per batch.
    - Consider renaming `distribution_detail` to `total_distributed` or `quantity_distributed` if it’s meant to track the amount produced for distribution. 
 
 2. **`recipes` Table**:
-   - If the `cost_per_use` is dynamic (based on batch prices), consider calculating this on demand in queries rather than storing it. If you still want to store it, ensure it's updated each time ingredient costs fluctuate.
    
+   - If the `cost_per_use` is dynamic (based on batch prices), consider calculating this on demand in queries rather than storing it. If you still want to store it, ensure it's updated each time ingredient costs fluctuate.
+
 3. **`users` Table**:
+   
    - Consider adding fields for `phone_number` and `address` if needed for personalized marketing or delivery.
 
 4. **`sales` Table**:
+   
    - Add a `total_sale_cost` column to reflect the total cost (based on ingredients) of the products sold. This allows you to analyze profitability directly by comparing `sale_amount` and `total_sale_cost`.
 
 ### Final Revised Structure
@@ -1073,7 +1095,9 @@ Your table structure looks well-organized and addresses all key requirements for
 This refined structure should provide the flexibility and detail you need to track production costs, sales, distribution, and promotional activities across multiple carts. It will also facilitate reporting and analysis of profit margins, inventory costs, and customer loyalty programs.
 
 ---
+
 # DDL of the final table structure
+
 ---
 
 Certainly! Below is the DDL for each table in PostgreSQL, incorporating constraints such as primary keys, foreign keys, and some additional constraints to maintain data integrity. 
@@ -1202,6 +1226,7 @@ CREATE TABLE promotions (
 ```
 
 ### Key Details
+
 - **Foreign Key Constraints**: Ensure relationships between tables are maintained. 
 - **Default Values**: For timestamp and calculated discount fields, ensuring proper default calculations where appropriate.
 - **Constraints on Numeric Fields**: For `quantity`, `price_per_unit`, `total_cost`, etc., limits are set to maintain data integrity.
@@ -1210,7 +1235,9 @@ CREATE TABLE promotions (
 This structure should allow for accurate tracking of production costs per batch, inventory management, and sales tracking for the coffee cart business. Let me know if you'd like further customization.
 
 ---
+
 # Which data to be inserted first
+
 ---
 
 To avoid constraint errors when inserting data into this database, you should populate the tables in an order that respects their dependencies, starting with tables that have no foreign key constraints and proceeding to those with the most dependencies. Here's the suggested order:
@@ -1242,6 +1269,7 @@ To avoid constraint errors when inserting data into this database, you should po
 13. **`cart_products`**: This table references both `carts` and `products`, so they need to be populated before adding cart inventory information.
 
 ### Summary of Insertion Order:
+
 1. `users`
 2. `carts`
 3. `products`
@@ -1259,22 +1287,28 @@ To avoid constraint errors when inserting data into this database, you should po
 Following this order ensures that all foreign key dependencies are respected, minimizing the risk of constraint errors during data insertion.
 
 ---
+
 # Revision to the DDL
+
 ---
 
 Your DDL has some errors and adjustments needed to work correctly in PostgreSQL. Here are the issues I identified and corrected:
 
 1. **Syntax Issues**:
+   
    - Missing commas in several places.
    - The constraint on `prod_ingr_cost.cost_per_unit` is incorrect.
 
 2. **Incorrect Foreign Key References**:
+   
    - `FOREIGN KEY (cost_per_unit) REFERENCES ingr_batch(price_per_unit) ON DELETE RESTRICT` in `prod_ingr_cost` is incorrect. Foreign keys should reference primary or unique key columns, so referencing a non-unique column is not allowed.
 
 3. **ON DELETE Clause in `cart_products` Table**:
+   
    - `ON DELETE RESTRICT` should be in the `FOREIGN KEY` clauses, not directly after the column definitions.
 
 4. **References to `price` in `sales_details`**:
+   
    - Referencing `products(price)` as a foreign key in `sales_details` doesn’t make sense because `price` is not unique.
 
 Here's the corrected DDL:
@@ -1408,6 +1442,7 @@ CREATE TABLE promotions (
 ```
 
 ### Key Changes
+
 1. **Fixed Missing Commas** and syntax issues.
 2. **Removed Foreign Key Reference to Non-Unique Column**: Removed `FOREIGN KEY (cost_per_unit) REFERENCES ingr_batch(price_per_unit) ON DELETE RESTRICT` in `prod_ingr_cost` table since it cannot reference a non-unique column.
 3. **Adjusted Constraints**: Moved constraints like `ON DELETE RESTRICT` within the `FOREIGN KEY` clause in tables like `cart_products`.
@@ -1415,7 +1450,9 @@ CREATE TABLE promotions (
 These changes should allow the DDL to run without syntax errors and enforce the correct constraints.
 
 ---
+
 # Referencing a non-key column in other table
+
 ---
 
 In relational databases, you generally cannot create a foreign key reference to a column that isn’t a primary key or doesn’t have a unique constraint. This means that while you can reference `product_id` in `sales_details` as a foreign key from `products` because `product_id` is a primary key, you can’t directly reference the `price` column from `products` as a foreign key since it isn’t unique or a primary key.
@@ -1423,10 +1460,11 @@ In relational databases, you generally cannot create a foreign key reference to 
 However, there are a few ways to achieve similar functionality:
 
 1. **Copy the `price` value into `sales_details` using a trigger**:
+   
    - You could use a trigger to automatically set the `price` in `sales_details` when a new row is inserted, or whenever `product_id` in `sales_details` is updated. The trigger would pull the price from `products` based on the `product_id`.
    
    Here’s a simple example of such a trigger:
-
+   
    ```sql
    CREATE OR REPLACE FUNCTION set_price_from_product()
    RETURNS TRIGGER AS $$
@@ -1435,18 +1473,19 @@ However, there are a few ways to achieve similar functionality:
        RETURN NEW;
    END;
    $$ LANGUAGE plpgsql;
-
+   
    CREATE TRIGGER set_price_trigger
    BEFORE INSERT OR UPDATE ON sales_details
    FOR EACH ROW
    EXECUTE FUNCTION set_price_from_product();
    ```
-
+   
    This trigger sets `price` in `sales_details` based on the `product_id` whenever a new row is inserted or updated.
 
 2. **Use a view to join data from both tables**:
+   
    - Instead of duplicating the `price` in `sales_details`, you could create a view that joins `sales_details` and `products` to include `price` from `products` in a combined result. For example:
-
+   
    ```sql
    CREATE VIEW sales_details_with_price AS
    SELECT sd.sales_details_id, sd.sale_id, sd.product_id, p.price, sd.quantity, sd.price_amount
@@ -1455,9 +1494,295 @@ However, there are a few ways to achieve similar functionality:
    ```
 
 3. **Add `price` in `sales_details` without foreign key constraint**:
+   
    - If you don’t require referential integrity enforcement on `price`, you can include it in `sales_details` as a regular column and manually ensure that it matches the value in `products` when necessary (e.g., through application logic).
 
 Each approach has trade-offs, so the best choice depends on your use case:
+
 - **Triggers** ensure data consistency but may have a slight performance impact.
 - **Views** are efficient for reading data but do not store it in `sales_details`.
 - **Direct addition** without a constraint gives flexibility but requires manual consistency management.
+
+---
+
+## Updated schema to track location history to analyze location-based sales
+
+---
+
+To effectively track the sales performance of each coffee cart by both *location* and *time-of-day*, we'll need to capture additional data on the cart’s *location history*, *time spent at each location*, and *sales transactions* tied to each specific location and time-of-day period. Here's a breakdown of how to approach this:
+
+### 1. Capturing the Necessary Data
+
+We need to gather information on:
+
+- **Location and Time of Day**: Each time a cart arrives at and leaves a location, capturing timestamps and specific locations (subdistricts).
+- **Sales Transactions**: Each sale’s timestamp, amount, and associated cart/location.
+- **Operational Hours**: Defining parts of the day (e.g., morning, afternoon) to better understand sales performance in those specific periods.
+
+### 2. Database Schema / DDL Improvements
+
+To accommodate these needs, we can add two new tables:
+
+1. **`cart_location_history`**: Logs each cart’s location and time period.
+2. **`cart_sales`**: Tracks each sale with details on location, cart, and the time period it was made in.
+
+### Suggested Updated Schema
+
+Here’s an example schema incorporating these tables and the necessary relationships:
+
+```sql
+CREATE TABLE cart_location_history (
+    location_history_id SERIAL PRIMARY KEY,
+    cart_id INT NOT NULL,
+    location VARCHAR(100) NOT NULL,
+    subdistrict VARCHAR(100) NOT NULL,
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP,
+    part_of_day VARCHAR(20) GENERATED ALWAYS AS (
+        CASE
+            WHEN EXTRACT(hour FROM start_time) BETWEEN 6 AND 11 THEN 'morning'
+            WHEN EXTRACT(hour FROM start_time) BETWEEN 12 AND 15 THEN 'afternoon'
+            WHEN EXTRACT(hour FROM start_time) BETWEEN 16 AND 18 THEN 'late afternoon'
+            WHEN EXTRACT(hour FROM start_time) BETWEEN 19 AND 23 THEN 'evening'
+            ELSE 'night'
+        END
+    ) STORED,
+    FOREIGN KEY (cart_id) REFERENCES carts(cart_id) ON DELETE CASCADE
+);
+
+-- Log each sale, tying it to a cart, location, and part of the day
+CREATE TABLE cart_sales (
+    sale_id SERIAL PRIMARY KEY,
+    cart_id INT NOT NULL,
+    location VARCHAR(100) NOT NULL,
+    subdistrict VARCHAR(100) NOT NULL,
+    sale_time TIMESTAMP NOT NULL,
+    amount NUMERIC(10,2) NOT NULL CHECK (amount > 0),
+    part_of_day VARCHAR(20) GENERATED ALWAYS AS (
+        CASE
+            WHEN EXTRACT(hour FROM sale_time) BETWEEN 6 AND 11 THEN 'morning'
+            WHEN EXTRACT(hour FROM sale_time) BETWEEN 12 AND 15 THEN 'afternoon'
+            WHEN EXTRACT(hour FROM sale_time) BETWEEN 16 AND 18 THEN 'late afternoon'
+            WHEN EXTRACT(hour FROM sale_time) BETWEEN 19 AND 23 THEN 'evening'
+            ELSE 'night'
+        END
+    ) STORED,
+    FOREIGN KEY (cart_id) REFERENCES carts(cart_id) ON DELETE CASCADE
+);
+
+-- Track time spent by carts in each area for performance insights
+CREATE VIEW cart_location_duration AS
+SELECT
+    cart_id,
+    location,
+    subdistrict,
+    part_of_day,
+    SUM(EXTRACT(epoch FROM (end_time - start_time))/3600) AS hours_spent
+FROM cart_location_history
+GROUP BY cart_id, location, subdistrict, part_of_day;
+```
+
+### Explanation of the New Tables and View
+
+1. **`cart_location_history`**:
+   
+   - This table records each time a cart arrives and leaves a location.
+   - *`start_time`* and *`end_time`* are timestamps to track the time spent in a specific area.
+   - *`part_of_day`* is a generated column that categorizes the start time into morning, afternoon, late afternoon, evening, or night.
+
+2. **`cart_sales`**:
+   
+   - This table records each sale, its timestamp, and amount.
+   - *`part_of_day`* is a generated column similar to `cart_location_history`, based on the sale’s time.
+
+3. **`cart_location_duration` (View)**:
+   
+   - This view calculates the total hours each cart spends in each location/subdistrict during each part of the day.
+   - Using this view, you can track how long carts spend in specific areas and correlate that with sales data to analyze sales performance by location and time-of-day.
+
+### Benefits of This Structure
+
+This setup will allow you to:
+
+- Track the time each cart spends at specific locations and during which parts of the day.
+- Analyze sales based on location and time-of-day, which provides valuable insights into peak periods and high-performing locations.
+- Simplify querying for performance analysis since `part_of_day` is automatically computed.
+
+With this structure, you can easily query to find, for instance, sales performance in specific locations during different times of the day or examine the impact of location on sales trends.
+
+---
+
+## The explanations for `locations` in `cart_location_history` and `cart_sales`
+
+---
+
+In this scenario, we want `location` and `subdistrict` in `cart_location_history` to represent where each cart is at a given time. The `cart_sales` table also has a `location` column, which should match the cart’s current location when the sale occurs. To manage this, we need to ensure consistent and accurate data entry and consider a design that reduces redundancy.
+
+### Option 1: Reference `cart_location_history` in `cart_sales`
+
+To avoid duplicating location details across tables, we could relate `cart_sales` to `cart_location_history` by including a foreign key reference. This way, each sale record would reference the location history entry that was current at the sale time. Here’s how it could work:
+
+1. **Modify `cart_sales` to include a reference to `cart_location_history`**:
+   
+   - Add a column `location_history_id` to `cart_sales`, which points to the relevant entry in `cart_location_history`.
+   - This allows each sale to be directly associated with a specific `location` and `subdistrict` through `cart_location_history`.
+
+2. **Update Schema**:
+   Here’s how the tables might look with this change:
+   
+   ```sql
+   CREATE TABLE cart_location_history (
+       location_history_id SERIAL PRIMARY KEY,
+       cart_id INT NOT NULL,
+       location VARCHAR(100) NOT NULL,
+       subdistrict VARCHAR(100) NOT NULL,
+       start_time TIMESTAMP NOT NULL,
+       end_time TIMESTAMP,
+       part_of_day VARCHAR(20) GENERATED ALWAYS AS (
+           CASE
+               WHEN EXTRACT(hour FROM start_time) BETWEEN 6 AND 11 THEN 'morning'
+               WHEN EXTRACT(hour FROM start_time) BETWEEN 12 AND 15 THEN 'afternoon'
+               WHEN EXTRACT(hour FROM start_time) BETWEEN 16 AND 18 THEN 'late afternoon'
+               WHEN EXTRACT(hour FROM start_time) BETWEEN 19 AND 23 THEN 'evening'
+               ELSE 'night'
+           END
+       ) STORED,
+       FOREIGN KEY (cart_id) REFERENCES carts(cart_id) ON DELETE CASCADE
+   );
+   
+   CREATE TABLE cart_sales (
+       sale_id SERIAL PRIMARY KEY,
+       cart_id INT NOT NULL,
+       location_history_id INT NOT NULL,
+       sale_time TIMESTAMP NOT NULL,
+       amount NUMERIC(10,2) NOT NULL CHECK (amount > 0),
+       part_of_day VARCHAR(20) GENERATED ALWAYS AS (
+           CASE
+               WHEN EXTRACT(hour FROM sale_time) BETWEEN 6 AND 11 THEN 'morning'
+               WHEN EXTRACT(hour FROM sale_time) BETWEEN 12 AND 15 THEN 'afternoon'
+               WHEN EXTRACT(hour FROM sale_time) BETWEEN 16 AND 18 THEN 'late afternoon'
+               WHEN EXTRACT(hour FROM sale_time) BETWEEN 19 AND 23 THEN 'evening'
+               ELSE 'night'
+           END
+       ) STORED,
+       FOREIGN KEY (cart_id) REFERENCES carts(cart_id) ON DELETE CASCADE,
+       FOREIGN KEY (location_history_id) REFERENCES cart_location_history(location_history_id) ON DELETE CASCADE
+   );
+   ```
+
+3. **Data Entry Process**:
+   
+   - When a cart arrives at a new location, a new record is added to `cart_location_history`.
+   - When a sale is recorded, the `location_history_id` is referenced in `cart_sales`, linking each sale to the cart’s current location and time period.
+
+This approach ensures data consistency and avoids storing redundant `location` and `subdistrict` information directly in `cart_sales`.
+
+### Option 2: Store `location` and `subdistrict` Separately in `cart_sales`
+
+Alternatively, you could keep the `location` and `subdistrict` columns directly in `cart_sales` and populate them based on the active location in `cart_location_history` when each sale occurs. This approach might be simpler but has downsides, such as:
+
+- **Data Redundancy**: `location` and `subdistrict` data could be duplicated across multiple records if the same cart makes multiple sales at a location.
+- **Data Integrity**: Any updates to a location’s name or subdistrict would require updating all `cart_sales` records, making maintenance more difficult.
+
+### Recommended Approach
+
+**Option 1** is generally preferable because:
+
+- It normalizes the data, reducing redundancy and keeping locations consistent.
+- Updates to a cart’s location only affect the records in `cart_location_history`, leaving `cart_sales` clean and linked.
+
+This setup will provide an efficient structure for querying sales data by location, subdistrict, or time period without having to duplicate information unnecessarily.
+
+### Whether the `GENERATED ALWAYS AS ()` work in PostgreSQL
+
+Yes, the `GENERATED ALWAYS AS` syntax is supported in PostgreSQL, specifically for creating **generated (computed) columns** in tables starting from PostgreSQL 12. This feature allows you to define a column's value based on a calculation involving other columns or expressions without needing to write triggers or manage these columns manually.
+
+### Example of `GENERATED ALWAYS AS` in PostgreSQL
+
+In the code provided, the following structure is used for generating the `part_of_day` column based on `start_time` or `sale_time`:
+
+```sql
+part_of_day VARCHAR(20) GENERATED ALWAYS AS (
+    CASE
+        WHEN EXTRACT(hour FROM start_time) BETWEEN 6 AND 11 THEN 'morning'
+        WHEN EXTRACT(hour FROM start_time) BETWEEN 12 AND 15 THEN 'afternoon'
+        WHEN EXTRACT(hour FROM start_time) BETWEEN 16 AND 18 THEN 'late afternoon'
+        WHEN EXTRACT(hour FROM start_time) BETWEEN 19 AND 23 THEN 'evening'
+        ELSE 'night'
+    END
+) STORED
+```
+
+### Important Notes
+
+1. **Stored vs. Virtual Columns**: PostgreSQL only supports **stored** generated columns. The `STORED` keyword ensures that the column value is calculated when a row is inserted or updated and is then physically stored in the table. In contrast, **virtual (computed on read)** columns are recalculated each time they’re queried, but PostgreSQL does not support this for generated columns.
+
+2. **Constraints**: Generated columns can be used in `SELECT` statements and indexes but cannot be modified directly, as they are recalculated based on the defined expression.
+
+3. **Compatibility**: This syntax works in PostgreSQL 12 and later. If you're using an earlier version, you would need to use a workaround, such as creating the value via a `BEFORE INSERT` or `BEFORE UPDATE` trigger instead.
+
+### Example Table Creation with `GENERATED ALWAYS AS`
+
+Here’s a complete example for `cart_location_history` using `GENERATED ALWAYS AS`:
+
+```sql
+CREATE TABLE cart_location_history (
+    location_history_id SERIAL PRIMARY KEY,
+    cart_id INT NOT NULL,
+    location VARCHAR(100) NOT NULL,
+    subdistrict VARCHAR(100) NOT NULL,
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP,
+    part_of_day VARCHAR(20) GENERATED ALWAYS AS (
+        CASE
+            WHEN EXTRACT(hour FROM start_time) BETWEEN 6 AND 11 THEN 'morning'
+            WHEN EXTRACT(hour FROM start_time) BETWEEN 12 AND 15 THEN 'afternoon'
+            WHEN EXTRACT(hour FROM start_time) BETWEEN 16 AND 18 THEN 'late afternoon'
+            WHEN EXTRACT(hour FROM start_time) BETWEEN 19 AND 23 THEN 'evening'
+            ELSE 'night'
+        END
+    ) STORED,
+    FOREIGN KEY (cart_id) REFERENCES carts(cart_id) ON DELETE CASCADE
+);
+```
+
+This will automatically set `part_of_day` based on the `start_time` value when each record is inserted or updated.
+
+---
+
+## Changes from `sales` and `sales_detail` to `cart_sales` and modification in `sales_detail`
+
+---
+
+Yes, given that the original `sales` table has been restructured as `cart_sales` with updated references to `location_history_id` and new time-based tracking, you’ll need a few adjustments in the `sales_details` table to ensure consistency with the new `cart_sales` schema. However, if the core structure of `sales_details` remains the same (storing item-level details like `product_id`, `price`, and `quantity`), only a minor change is required:
+
+### Updated `sales_details` Table
+
+Here’s what needs to be updated:
+
+1. **Rename the `sale_id` foreign key** to reference `cart_sales(sale_id)`.
+2. Ensure `sales_details` remains linked to the correct primary key from the restructured `cart_sales`.
+
+Here's the modified `sales_details` table DDL statement:
+
+```sql
+CREATE TABLE sales_details (
+    sales_details_id SERIAL PRIMARY KEY,
+    sale_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    price NUMERIC(10,2) NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    price_amount NUMERIC(10,2) GENERATED ALWAYS AS (price * quantity) STORED,
+    FOREIGN KEY (sale_id) REFERENCES cart_sales(sale_id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(product_id) ON DELETE RESTRICT
+);
+```
+
+### Explanation of Changes:
+
+- **Foreign Key `sale_id`**: This now references `cart_sales(sale_id)` instead of `sales(sale_id)`.
+- **Column Integrity Checks**: The `quantity` column now has a `CHECK` constraint to ensure that quantity values are always positive.
+
+This revised schema aligns `sales_details` with the `cart_sales` table structure, allowing for efficient tracking of product-level sales data linked to cart location and time-of-day data. 
+
+Let me know if you need additional modifications or any more information!
