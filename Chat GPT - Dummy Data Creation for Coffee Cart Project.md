@@ -358,7 +358,9 @@ FROM your_table;
 This query uses `time_start` to determine the part of the day. You can replace `time_start` with `time_end` if you want to categorize by the end time. 
 
 ---
+
 # Dummy Data for Recipes
+
 ---
 
 To create recipes for each drink that target a 200ml serving, I'll base each drink's recipe on its main ingredients, assigning quantities based on typical proportions for these types of beverages. Here’s a breakdown:
@@ -428,3 +430,155 @@ VALUES
 - **Syrups**: Measured in milliliters, typically 10ml for a flavored latte.
 
 This setup achieves approximately 200ml per serving and ensures each recipe aligns with the ingredients and drink style. The `recipe_id` will be auto-generated for each `INSERT` command, and each ingredient's `ingredient_id` will be dynamically fetched using subqueries based on the ingredient name.
+
+
+
+---
+
+## Cart management
+
+---
+
+To add new carts every two months starting from January 2024, you can use the following Python code. It will take into account the initial carts specified in `cart_id_location_map`, and it will add new carts at each two-month interval until the current month. We will create unique cart IDs and assign them random base locations from `district_dict` for each new cart.
+
+Here’s how you can implement it:
+
+```python
+from datetime import datetime
+import random
+
+# Existing data setup
+table_carts = {'cart_id': [], 'base_location': [], 'employee_id': []}
+
+district_dict = {
+    'Menteng': ['Cikini', 'Gondangdia', 'Kebon Sirih', 'Menteng', 'Pegangsaan'],
+    'Sawah Besar': ['Gunung Sahari Utara', 'Karang Anyar', 'Kartini', 'Mangga Dua Selatan', 'Pasar Baru'],
+    'Tanah Abang': ['Bendungan Hilir', 'Gelora', 'Kampung Bali', 'Karet Tengsin', 'Kebon Kacang',
+                    'Kebon Melati', 'Petamburan'],
+    'Mampang Prapatan': ['Bangka', 'Kuningan Barat', 'Mampang Prapatan', 'Pela Mampang', 'Tegal Parang'],
+    'Setiabudi': ['Guntur', 'Karet Kuningan', 'Karet Semanggi', 'Karet', 'Kuningan Timur',
+                  'Menteng Atas', 'Pasar Manggis', 'Setiabudi'],
+    'Tebet': ['Bukit Duri', 'Kebon Baru', 'Manggarai Selatan', 'Manggarai', 'Menteng Dalam',
+              'Tebet Barat', 'Tebet Timur']
+}
+
+# Map of initial cart IDs to base locations
+cart_id_location_map = {
+    'C001': 'Menteng', 'C002': 'Sawah Besar', 'C003': 'Tanah Abang',
+    'C004': 'Mampang Prapatan', 'C005': 'Setiabudi', 'C006': 'Tebet'
+}
+
+# Populate the initial carts
+for cart_id, location in cart_id_location_map.items():
+    table_carts['cart_id'].append(cart_id)
+    table_carts['base_location'].append(location)
+    table_carts['employee_id'].append(None)  # Replace with actual employee_id if available
+
+# Determine the starting date and current date
+start_year = 2024
+start_month = 1  # January
+current_date = datetime.now()
+num_months = (current_date.year - start_year) * 12 + (current_date.month - start_month)
+
+# Loop through each two-month interval and add new carts
+for i in range(6, 6 + (num_months // 2)):  # Starting cart ID index after initial carts
+    cart_id = f"C{i + 1:03}"  # Generates cart IDs like C007, C008, etc.
+    base_location = random.choice(list(district_dict.keys()))
+
+    table_carts['cart_id'].append(cart_id)
+    table_carts['base_location'].append(base_location)
+    table_carts['employee_id'].append(None)  # Replace with actual employee_id if available
+
+# Display the results
+print(table_carts)
+```
+
+### Explanation:
+
+1. **Existing Carts:** 
+   
+   - We start by adding the initial carts as per `cart_id_location_map`.
+
+2. **Date Calculation:**
+   
+   - We calculate the number of months from January 2024 to the current month. 
+
+3. **New Carts Generation:**
+   
+   - For each two-month interval after the initial carts, we generate a new `cart_id` (formatted as `C007`, `C008`, etc.), assign it a random `base_location`, and append it to `table_carts`.
+
+This will populate `table_carts` with the initial carts plus any new carts added every two months up to the current month.
+
+---
+
+## Making sure that each cart contains up to 300 products combined
+
+---
+
+To implement your requirements, the code should:
+
+1. **Avoid duplicate pairs of `cart_id` and `product_id`**: We need to keep track of which `product_id`s have already been added to each `cart_id` and prevent duplicates.
+2. **Limit the sum of `quantity` for each `cart_id` to a maximum of 300**: We’ll monitor the total `quantity` for each `cart_id` and ensure it doesn’t exceed 300.
+
+Here’s a revised version of your code that addresses these points:
+
+```python
+import random
+
+# Assuming `table_carts` and `table_products` are pre-existing dictionaries or lists
+# with the respective `cart_id`s and `product_id`s.
+
+# Sample data (replace with actual data from table_carts and table_products)
+table_carts = {'cart_id': [1, 2, 3, 4, 5]}
+table_products = {'product_id': [101, 102, 103, 104, 105]}
+
+# Initialize the `table_cart_products` dictionary
+table_cart_products = {'cart_id': [], 'product_id': [], 'quantity': []}
+
+# Dictionary to keep track of total quantity for each cart_id
+cart_quantity_totals = {cart_id: 0 for cart_id in table_carts['cart_id']}
+# Dictionary to track added products for each cart to avoid duplicates
+cart_products_set = {cart_id: set() for cart_id in table_carts['cart_id']}
+
+# Iterate through each cart_id
+for cart_id in table_carts['cart_id']:
+    # Try adding multiple products to each cart_id until the quantity limit is reached
+    while cart_quantity_totals[cart_id] < 300:
+        # Randomly select a product_id
+        product_id = random.choice(table_products['product_id'])
+
+        # Check if this product_id has already been added to this cart_id
+        if product_id not in cart_products_set[cart_id]:
+            # Generate a random quantity between 10 and 50
+            quantity = random.randint(10, 50)
+
+            # Check if adding this quantity would exceed the total limit of 300
+            if cart_quantity_totals[cart_id] + quantity > 300:
+                # Adjust quantity to not exceed 300 if necessary
+                quantity = 300 - cart_quantity_totals[cart_id]
+
+            # Add the cart_id, product_id, and quantity to the table
+            table_cart_products['cart_id'].append(cart_id)
+            table_cart_products['product_id'].append(product_id)
+            table_cart_products['quantity'].append(quantity)
+
+            # Update total quantity and product set for this cart
+            cart_quantity_totals[cart_id] += quantity
+            cart_products_set[cart_id].add(product_id)
+
+            # Stop if the cart quantity reaches exactly 300
+            if cart_quantity_totals[cart_id] == 300:
+                break
+
+# The resulting `table_cart_products` dictionary contains data with unique cart_id-product_id pairs
+# and a total quantity per cart_id that does not exceed 300.
+print(table_cart_products)
+```
+
+### Explanation of Changes:
+
+1. **`cart_quantity_totals`**: This dictionary tracks the cumulative `quantity` for each `cart_id` to ensure the total does not exceed 300.
+2. **`cart_products_set`**: This dictionary uses sets to keep track of `product_id`s added to each `cart_id`, ensuring each product appears only once per cart.
+3. **Controlled Quantity Addition**: Before adding a product’s `quantity`, the code checks if it would exceed the 300 limit. If so, it adjusts `quantity` to fit exactly within the limit.
+
+With these modifications, this code will meet your requirements, preventing duplicate `cart_id`-`product_id` pairs and ensuring the total `quantity` per `cart_id` does not exceed 300.
